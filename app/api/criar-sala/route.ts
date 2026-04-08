@@ -6,18 +6,18 @@ export async function POST() {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${process.env.DAILY_API_KEY}`,
       },
-      body: JSON.stringify({
-        privacy: "public",
-        properties: {
-          exp: Math.round(Date.now() / 1000) + 60 * 60,
-          enable_recording: "none",
-        },
-      }),
+      body: JSON.stringify({}),
     })
 
     const data = await response.json()
+    console.log("Daily response:", JSON.stringify(data))
+
+    if (!data.url) {
+      return Response.json({ error: "Link não gerado", data }, { status: 500 })
+    }
+
     return Response.json({ url: data.url })
-  } catch {
-    return Response.json({ error: "Erro ao criar sala" }, { status: 500 })
+  } catch (err) {
+    return Response.json({ error: String(err) }, { status: 500 })
   }
 }
