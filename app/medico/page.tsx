@@ -13,7 +13,7 @@ const modelosPadrao = [
 ]
 
 export default function MedicoPage() {
-  const [fila, setFila] = useState([])
+  const [fila, setFila] = useState<any[]>([])
   const [pacienteAtual, setPacienteAtual] = useState(null)
   const [prontuario, setProntuario] = useState("")
   const [concluidas, setConcluidas] = useState(0)
