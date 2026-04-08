@@ -62,6 +62,32 @@ export default function MedicoPage() {
     setReceitaAssinada(false)
     setAtestadoAssinado(false)
     setLoading(false)
+
+    async function iniciarAtendimento() {
+  if (fila.length === 0) return
+  setLoading(true)
+  const proximo = fila[0]
+
+  // Gera link do Daily.co
+  const res = await fetch("/api/criar-sala", { method: "POST" })
+  const { url } = await res.json()
+
+  await supabase
+    .from("fila")
+    .update({ status: "em_atendimento", link_meet: url })
+    .eq("id", proximo.id)
+
+  setPacienteAtual({...proximo, link_meet: url})
+  setFila((f: any[]) => f.slice(1))
+  setEmAtendimento(true)
+  setProntuario("")
+  setMostrarModelos(false)
+  setMostrarReceita(false)
+  setMostrarAtestado(false)
+  setReceitaAssinada(false)
+  setAtestadoAssinado(false)
+  setLoading(false)
+}
   }
 
   async function encerrar(motivo: string) {
@@ -134,7 +160,12 @@ export default function MedicoPage() {
                 <h2 style={{fontSize: "20px", fontWeight: 500, color: "#085041", marginTop: "4px"}}>{pacienteAtual.pacientes?.nome}</h2>
                 <p style={{fontSize: "12px", color: "#888780"}}>CPF: {pacienteAtual.pacientes?.cpf}</p>
               </div>
-              <button onClick={() => window.open("https://meet.google.com")} style={btnVerde}>Abrir Meet</button>
+              <button
+                onClick={() => window.open(pacienteAtual.link_meet)}
+                style={btnVerde}
+              >
+                Abrir videochamada
+              </button>
             </div>
 
             <div style={{background: "#E1F5EE", borderRadius: "10px", padding: "14px", marginBottom: "16px"}}>
