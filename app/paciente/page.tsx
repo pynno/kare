@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { supabase } from "../lib/supabase"
 
 export default function PacientePage() {
@@ -9,6 +9,44 @@ export default function PacientePage() {
   const [tempo, setTempo] = useState(0)
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState("")
+  const [linkConsulta, setLinkConsulta] = useState("")
+  const filaIdRef = useRef<string>("")
+
+  useEffect(() => {
+    if (etapa !== "fila") return
+
+    const interval = setInterval(async () => {
+      if (!filaIdRef.current) return
+
+      const { data } = await supabase
+        .from("fila")
+        .select("status, posicao, link_meet")
+        .eq("id", filaIdRef.current)
+        .single()
+
+      if (!data) return
+
+      if (data.status === "em_atendimento" && data.link_meet) {
+        setLinkConsulta(data.link_meet)
+        setEtapa("chamado")
+        clearInterval(interval)
+        return
+      }
+
+      if (data.status === "aguardando") {
+        const { count } = await supabase
+          .from("fila")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "aguardando")
+          .lt("posicao", data.posicao)
+
+        setPosicao((count || 0) + 1)
+        setTempo(((count || 0) + 1) * 8)
+      }
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [etapa])
 
   async function handleCadastro(e: React.FormEvent) {
     e.preventDefault()
@@ -16,7 +54,6 @@ export default function PacientePage() {
     setErro("")
 
     try {
-      // Verifica se paciente já existe pelo CPF
       let pacienteId = ""
       const { data: pacienteExistente } = await supabase
         .from("pacientes")
@@ -27,18 +64,15 @@ export default function PacientePage() {
       if (pacienteExistente) {
         pacienteId = pacienteExistente.id
       } else {
-        // Cria novo paciente
         const { data: novoPaciente, error: erroPaciente } = await supabase
           .from("pacientes")
           .insert({ nome: form.nome, cpf: form.cpf, email: form.email })
           .select("id")
           .single()
-
         if (erroPaciente) throw erroPaciente
         pacienteId = novoPaciente.id
       }
 
-      // Conta quantos estão na fila
       const { count } = await supabase
         .from("fila")
         .select("*", { count: "exact", head: true })
@@ -47,8 +81,7 @@ export default function PacientePage() {
       const posicaoNaFila = (count || 0) + 1
       const tempoEstimado = posicaoNaFila * 8
 
-      // Entra na fila
-      const { error: erroFila } = await supabase
+      const { data: filaData, error: erroFila } = await supabase
         .from("fila")
         .insert({
           paciente_id: pacienteId,
@@ -56,9 +89,12 @@ export default function PacientePage() {
           posicao: posicaoNaFila,
           status: "aguardando"
         })
+        .select("id")
+        .single()
 
       if (erroFila) throw erroFila
 
+      filaIdRef.current = filaData.id
       setPosicao(posicaoNaFila)
       setTempo(tempoEstimado)
       setEtapa("fila")
@@ -86,7 +122,7 @@ export default function PacientePage() {
             </p>
           </div>
           <button
-            onClick={() => window.open("https://meet.google.com")}
+            onClick={() => window.open(linkConsulta)}
             style={{width: "100%", background: "#0F6E56", color: "#fff", padding: "16px", borderRadius: "12px", fontWeight: 500, fontSize: "16px", border: "none", cursor: "pointer", marginBottom: "12px"}}
           >
             Entrar na consulta
@@ -114,8 +150,8 @@ export default function PacientePage() {
               {posicao}
             </div>
             <div style={{display: "flex", justifyContent: "center", gap: "6px", marginTop: "12px", flexWrap: "wrap"}}>
-              {Array.from({length: posicao}).map((_, i) => (
-                <div key={i} style={{width: "10px", height: "10px", borderRadius: "50%", background: i === posicao - 1 ? "#0F6E56" : "#9FE1CB"}}/>
+              {Array.from({length: Math.min(posicao, 10)}).map((_, i) => (
+                <div key={i} style={{width: "10px", height: "10px", borderRadius: "50%", background: i === Math.min(posicao, 10) - 1 ? "#0F6E56" : "#9FE1CB"}}/>
               ))}
             </div>
           </div>
@@ -135,15 +171,9 @@ export default function PacientePage() {
             <p style={{fontSize: "11px", color: "#0F6E56", fontWeight: 500, marginBottom: "6px"}}>Queixa registrada</p>
             <p style={{fontSize: "13px", color: "#085041"}}>{form.queixa}</p>
           </div>
-          <p style={{fontSize: "11px", color: "#B4B2A9", textAlign: "center", marginBottom: "16px"}}>
+          <p style={{fontSize: "11px", color: "#B4B2A9", textAlign: "center"}}>
             Não feche essa aba. Você será avisado quando for sua vez.
           </p>
-          <button
-            onClick={() => setEtapa("chamado")}
-            style={{width: "100%", background: "transparent", color: "#B4B2A9", padding: "8px", borderRadius: "8px", fontSize: "11px", border: "0.5px solid #E1F5EE", cursor: "pointer"}}
-          >
-            simular chamada do médico
-          </button>
         </div>
       </main>
     )
@@ -162,45 +192,19 @@ export default function PacientePage() {
         <form onSubmit={handleCadastro} style={{display: "flex", flexDirection: "column", gap: "16px"}}>
           <div>
             <label style={{fontSize: "12px", fontWeight: 500, color: "#0F6E56", display: "block", marginBottom: "6px"}}>Nome completo</label>
-            <input
-              required
-              placeholder="Seu nome completo"
-              value={form.nome}
-              onChange={e => setForm({...form, nome: e.target.value})}
-              style={{width: "100%", background: "#F8FDFB", border: "0.5px solid #9FE1CB", borderRadius: "10px", padding: "10px 14px", fontSize: "14px", color: "#085041", outline: "none"}}
-            />
+            <input required placeholder="Seu nome completo" value={form.nome} onChange={e => setForm({...form, nome: e.target.value})} style={{width: "100%", background: "#F8FDFB", border: "0.5px solid #9FE1CB", borderRadius: "10px", padding: "10px 14px", fontSize: "14px", color: "#085041", outline: "none"}} />
           </div>
           <div>
             <label style={{fontSize: "12px", fontWeight: 500, color: "#0F6E56", display: "block", marginBottom: "6px"}}>CPF</label>
-            <input
-              required
-              placeholder="000.000.000-00"
-              value={form.cpf}
-              onChange={e => setForm({...form, cpf: e.target.value})}
-              style={{width: "100%", background: "#F8FDFB", border: "0.5px solid #9FE1CB", borderRadius: "10px", padding: "10px 14px", fontSize: "14px", color: "#085041", outline: "none"}}
-            />
+            <input required placeholder="000.000.000-00" value={form.cpf} onChange={e => setForm({...form, cpf: e.target.value})} style={{width: "100%", background: "#F8FDFB", border: "0.5px solid #9FE1CB", borderRadius: "10px", padding: "10px 14px", fontSize: "14px", color: "#085041", outline: "none"}} />
           </div>
           <div>
             <label style={{fontSize: "12px", fontWeight: 500, color: "#0F6E56", display: "block", marginBottom: "6px"}}>E-mail</label>
-            <input
-              required
-              type="email"
-              placeholder="seu@email.com"
-              value={form.email}
-              onChange={e => setForm({...form, email: e.target.value})}
-              style={{width: "100%", background: "#F8FDFB", border: "0.5px solid #9FE1CB", borderRadius: "10px", padding: "10px 14px", fontSize: "14px", color: "#085041", outline: "none"}}
-            />
+            <input required type="email" placeholder="seu@email.com" value={form.email} onChange={e => setForm({...form, email: e.target.value})} style={{width: "100%", background: "#F8FDFB", border: "0.5px solid #9FE1CB", borderRadius: "10px", padding: "10px 14px", fontSize: "14px", color: "#085041", outline: "none"}} />
           </div>
           <div>
             <label style={{fontSize: "12px", fontWeight: 500, color: "#0F6E56", display: "block", marginBottom: "6px"}}>Queixa principal</label>
-            <textarea
-              required
-              placeholder="Descreva brevemente o motivo da consulta..."
-              rows={3}
-              value={form.queixa}
-              onChange={e => setForm({...form, queixa: e.target.value})}
-              style={{width: "100%", background: "#F8FDFB", border: "0.5px solid #9FE1CB", borderRadius: "10px", padding: "10px 14px", fontSize: "14px", color: "#085041", outline: "none", resize: "none"}}
-            />
+            <textarea required placeholder="Descreva brevemente o motivo da consulta..." rows={3} value={form.queixa} onChange={e => setForm({...form, queixa: e.target.value})} style={{width: "100%", background: "#F8FDFB", border: "0.5px solid #9FE1CB", borderRadius: "10px", padding: "10px 14px", fontSize: "14px", color: "#085041", outline: "none", resize: "none"}} />
           </div>
 
           {erro && (
@@ -209,11 +213,7 @@ export default function PacientePage() {
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            style={{background: loading ? "#B4B2A9" : "#0F6E56", color: "#fff", padding: "14px", borderRadius: "12px", fontWeight: 500, fontSize: "15px", border: "none", cursor: loading ? "not-allowed" : "pointer", marginTop: "4px"}}
-          >
+          <button type="submit" disabled={loading} style={{background: loading ? "#B4B2A9" : "#0F6E56", color: "#fff", padding: "14px", borderRadius: "12px", fontWeight: 500, fontSize: "15px", border: "none", cursor: loading ? "not-allowed" : "pointer", marginTop: "4px"}}>
             {loading ? "Entrando na fila..." : "Entrar na fila"}
           </button>
         </form>
