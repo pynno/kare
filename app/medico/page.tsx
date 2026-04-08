@@ -12,23 +12,25 @@ const modelosPadrao = [
   { id: 7, nome: "Febre sem foco", texto: "S: Paciente refere febre de ___°C há ___ dias, sem foco identificado.\nO: Sem sinais de localização. Hemodinamicamente estável.\nA: Síndrome febril sem foco aparente.\nP: Antitérmico, hidratação, retorno se piora ou persistência além de 3 dias." },
 ]
 
+type Modelo = { id: number; nome: string; texto: string }
+
 export default function MedicoPage() {
   const [fila, setFila] = useState<any[]>([])
-  const [pacienteAtual, setPacienteAtual] = useState(null)
-  const [prontuario, setProntuario] = useState("")
-  const [concluidas, setConcluidas] = useState(0)
-  const [emAtendimento, setEmAtendimento] = useState(false)
-  const [modelos, setModelos] = useState(modelosPadrao)
-  const [mostrarModelos, setMostrarModelos] = useState(false)
-  const [mostrarNovoModelo, setMostrarNovoModelo] = useState(false)
+  const [pacienteAtual, setPacienteAtual] = useState<any>(null)
+  const [prontuario, setProntuario] = useState<string>("")
+  const [concluidas, setConcluidas] = useState<number>(0)
+  const [emAtendimento, setEmAtendimento] = useState<boolean>(false)
+  const [modelos, setModelos] = useState<Modelo[]>(modelosPadrao)
+  const [mostrarModelos, setMostrarModelos] = useState<boolean>(false)
+  const [mostrarNovoModelo, setMostrarNovoModelo] = useState<boolean>(false)
   const [novoModelo, setNovoModelo] = useState({ nome: "", texto: "" })
-  const [mostrarReceita, setMostrarReceita] = useState(false)
-  const [mostrarAtestado, setMostrarAtestado] = useState(false)
+  const [mostrarReceita, setMostrarReceita] = useState<boolean>(false)
+  const [mostrarAtestado, setMostrarAtestado] = useState<boolean>(false)
   const [receita, setReceita] = useState({ medicamento: "", dose: "", duracao: "", instrucoes: "" })
   const [atestado, setAtestado] = useState({ dias: "", motivo: "", observacoes: "" })
-  const [receitaAssinada, setReceitaAssinada] = useState(false)
-  const [atestadoAssinado, setAtestadoAssinado] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [receitaAssinada, setReceitaAssinada] = useState<boolean>(false)
+  const [atestadoAssinado, setAtestadoAssinado] = useState<boolean>(false)
+  const [loading, setLoading] = useState<boolean>(false)
 
   useEffect(() => {
     carregarFila()
@@ -49,14 +51,9 @@ export default function MedicoPage() {
     if (fila.length === 0) return
     setLoading(true)
     const proximo = fila[0]
-
-    await supabase
-      .from("fila")
-      .update({ status: "em_atendimento" })
-      .eq("id", proximo.id)
-
+    await supabase.from("fila").update({ status: "em_atendimento" }).eq("id", proximo.id)
     setPacienteAtual(proximo)
-    setFila(f => f.slice(1))
+    setFila((f: any[]) => f.slice(1))
     setEmAtendimento(true)
     setProntuario("")
     setMostrarModelos(false)
@@ -69,39 +66,35 @@ export default function MedicoPage() {
 
   async function encerrar(motivo: string) {
     if (!pacienteAtual) return
-
     if (motivo === "concluido") {
       await supabase.from("fila").update({ status: "concluido" }).eq("id", pacienteAtual.id)
-      setConcluidas(c => c + 1)
+      setConcluidas((c: number) => c + 1)
     }
-
     if (motivo === "problemas_tecnicos") {
       await supabase.from("fila").update({ status: "aguardando", posicao: 0 }).eq("id", pacienteAtual.id)
     }
-
     if (motivo === "nao_compareceu") {
       await supabase.from("fila").update({ status: "nao_compareceu" }).eq("id", pacienteAtual.id)
     }
-
     setPacienteAtual(null)
     setEmAtendimento(false)
     setProntuario("")
     carregarFila()
   }
 
-  function aplicarModelo(texto) {
+  function aplicarModelo(texto: string) {
     setProntuario(texto)
     setMostrarModelos(false)
   }
 
   function salvarNovoModelo() {
     if (!novoModelo.nome || !novoModelo.texto) return
-    setModelos(m => [...m, { id: Date.now(), ...novoModelo }])
+    setModelos((m: Modelo[]) => [...m, { id: Date.now(), ...novoModelo }])
     setNovoModelo({ nome: "", texto: "" })
     setMostrarNovoModelo(false)
   }
 
-  function assinarBirdID(tipo) {
+  function assinarBirdID(tipo: string) {
     setTimeout(() => {
       if (tipo === "receita") setReceitaAssinada(true)
       if (tipo === "atestado") setAtestadoAssinado(true)
@@ -114,7 +107,6 @@ export default function MedicoPage() {
 
   return (
     <main className="min-h-screen" style={{background: "#F0FAF6"}}>
-
       <div style={{background: "#085041", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between"}}>
         <div>
           <h1 style={{fontSize: "20px", fontWeight: 500, color: "#E1F5EE"}}>Kare saúde</h1>
@@ -136,16 +128,13 @@ export default function MedicoPage() {
 
         {emAtendimento && pacienteAtual && (
           <div style={{background: "#fff", borderRadius: "16px", border: "0.5px solid #9FE1CB", padding: "24px", marginBottom: "20px"}}>
-
             <div style={{display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px"}}>
               <div>
                 <p style={{fontSize: "11px", fontWeight: 500, color: "#1D9E75", textTransform: "uppercase", letterSpacing: "0.8px"}}>Em atendimento agora</p>
                 <h2 style={{fontSize: "20px", fontWeight: 500, color: "#085041", marginTop: "4px"}}>{pacienteAtual.pacientes?.nome}</h2>
                 <p style={{fontSize: "12px", color: "#888780"}}>CPF: {pacienteAtual.pacientes?.cpf}</p>
               </div>
-              <button onClick={() => window.open("https://meet.google.com")} style={btnVerde}>
-                Abrir Meet
-              </button>
+              <button onClick={() => window.open("https://meet.google.com")} style={btnVerde}>Abrir Meet</button>
             </div>
 
             <div style={{background: "#E1F5EE", borderRadius: "10px", padding: "14px", marginBottom: "16px"}}>
@@ -175,7 +164,7 @@ export default function MedicoPage() {
                 <div style={{background: "#F8FDFB", border: "0.5px solid #9FE1CB", borderRadius: "10px", padding: "12px", marginBottom: "10px"}}>
                   <p style={{fontSize: "11px", fontWeight: 500, color: "#0F6E56", marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.8px"}}>Selecione um modelo</p>
                   <div style={{display: "flex", flexDirection: "column", gap: "6px"}}>
-                    {modelos.map(m => (
+                    {modelos.map((m: Modelo) => (
                       <button key={m.id} onClick={() => aplicarModelo(m.texto)} style={{background: "#fff", border: "0.5px solid #9FE1CB", borderRadius: "8px", padding: "10px 14px", fontSize: "13px", color: "#085041", cursor: "pointer", textAlign: "left", fontWeight: 500}}>
                         {m.nome}
                       </button>
@@ -245,7 +234,6 @@ export default function MedicoPage() {
                 <button onClick={() => encerrar("nao_compareceu")} style={{flex: 1, background: "#A32D2D", color: "#fff", padding: "12px", borderRadius: "10px", fontSize: "13px", fontWeight: 500, border: "none", cursor: "pointer"}}>Não compareceu</button>
               </div>
             </div>
-
           </div>
         )}
 
@@ -260,18 +248,14 @@ export default function MedicoPage() {
         )}
 
         <div style={{background: "#fff", borderRadius: "16px", border: "0.5px solid #9FE1CB", padding: "20px"}}>
-          <p style={{fontSize: "12px", fontWeight: 500, color: "#0F6E56", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "14px"}}>
-            Fila de espera
-          </p>
+          <p style={{fontSize: "12px", fontWeight: 500, color: "#0F6E56", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "14px"}}>Fila de espera</p>
           {fila.length === 0 ? (
             <p style={{fontSize: "14px", color: "#B4B2A9", textAlign: "center", padding: "20px 0"}}>Nenhum paciente aguardando</p>
           ) : (
             <div style={{display: "flex", flexDirection: "column", gap: "8px"}}>
-              {fila.map((p, i) => (
+              {fila.map((p: any, i: number) => (
                 <div key={p.id} style={{display: "flex", alignItems: "center", gap: "12px", background: "#F8FDFB", borderRadius: "10px", padding: "12px 14px", border: "0.5px solid #E1F5EE"}}>
-                  <div style={{width: "28px", height: "28px", borderRadius: "50%", background: "#E1F5EE", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: 500, color: "#0F6E56", flexShrink: 0}}>
-                    {i + 1}
-                  </div>
+                  <div style={{width: "28px", height: "28px", borderRadius: "50%", background: "#E1F5EE", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: 500, color: "#0F6E56", flexShrink: 0}}>{i + 1}</div>
                   <div style={{flex: 1}}>
                     <p style={{fontSize: "14px", fontWeight: 500, color: "#085041"}}>{p.pacientes?.nome}</p>
                     <p style={{fontSize: "12px", color: "#0F6E56", marginTop: "2px"}}>{p.queixa}</p>
