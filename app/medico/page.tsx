@@ -51,8 +51,16 @@ export default function MedicoPage() {
     if (fila.length === 0) return
     setLoading(true)
     const proximo = fila[0]
-    await supabase.from("fila").update({ status: "em_atendimento" }).eq("id", proximo.id)
-    setPacienteAtual(proximo)
+
+    const res = await fetch("/api/criar-sala", { method: "POST" })
+    const { url } = await res.json()
+
+    await supabase
+      .from("fila")
+      .update({ status: "em_atendimento", link_meet: url })
+      .eq("id", proximo.id)
+
+    setPacienteAtual({...proximo, link_meet: url})
     setFila((f: any[]) => f.slice(1))
     setEmAtendimento(true)
     setProntuario("")
@@ -62,32 +70,6 @@ export default function MedicoPage() {
     setReceitaAssinada(false)
     setAtestadoAssinado(false)
     setLoading(false)
-
-    async function iniciarAtendimento() {
-  if (fila.length === 0) return
-  setLoading(true)
-  const proximo = fila[0]
-
-  // Gera link do Daily.co
-  const res = await fetch("/api/criar-sala", { method: "POST" })
-  const { url } = await res.json()
-
-  await supabase
-    .from("fila")
-    .update({ status: "em_atendimento", link_meet: url })
-    .eq("id", proximo.id)
-
-  setPacienteAtual({...proximo, link_meet: url})
-  setFila((f: any[]) => f.slice(1))
-  setEmAtendimento(true)
-  setProntuario("")
-  setMostrarModelos(false)
-  setMostrarReceita(false)
-  setMostrarAtestado(false)
-  setReceitaAssinada(false)
-  setAtestadoAssinado(false)
-  setLoading(false)
-}
   }
 
   async function encerrar(motivo: string) {
@@ -161,7 +143,13 @@ export default function MedicoPage() {
                 <p style={{fontSize: "12px", color: "#888780"}}>CPF: {pacienteAtual.pacientes?.cpf}</p>
               </div>
               <button
-                onClick={() => window.open(pacienteAtual.link_meet)}
+                onClick={() => {
+                  if (pacienteAtual?.link_meet) {
+                    window.open(pacienteAtual.link_meet)
+                  } else {
+                    alert("Link ainda não gerado, aguarde.")
+                  }
+                }}
                 style={btnVerde}
               >
                 Abrir videochamada
