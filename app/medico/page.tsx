@@ -67,7 +67,7 @@ export default function MedicoPage() {
     setLoading(false)
   }
 
-  async function encerrar(motivo) {
+  async function encerrar(motivo: string) {
     if (!pacienteAtual) return
 
     if (motivo === "concluido") {
