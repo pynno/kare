@@ -7,10 +7,10 @@ export default function AdminPage() {
   const [form, setForm] = useState({ email: "", senha: "" })
   const [erro, setErro] = useState("")
   const [loading, setLoading] = useState(false)
-  const [medicos, setMedicos] = useState([])
+  const [medicos, setMedicos] = useState<any[]>([])
   const [novoMedico, setNovoMedico] = useState({ nome: "", crm: "", email: "", especialidade: "" })
   const [mostrarFormMedico, setMostrarFormMedico] = useState(false)
-  const [fila, setFila] = useState([])
+  const [fila, setFila] = useState<any[]>([])
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
