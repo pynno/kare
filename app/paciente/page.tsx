@@ -84,20 +84,26 @@ export default function PacientePage() {
         clearInterval(interval)
         return
       }
+      
+
 
       if (data.status === "aguardando") {
-        if (etapa === "chamado") {
-          setEtapa("problemas_tecnicos")
-          clearInterval(interval)
-          return
-        }
-        const { count } = await supabase
+        const { data: filaPaciente } = await supabase
           .from("fila")
-          .select("*", { count: "exact", head: true })
-          .eq("status", "aguardando")
-          .lt("posicao", data.posicao)
-        setPosicao((count || 0) + 1)
-        setTempo(((count || 0) + 1) * 8)
+          .select("entrou_em")
+          .eq("id", filaIdRef.current)
+          .single()
+
+        if (filaPaciente) {
+          const { count } = await supabase
+           .from("fila")
+           .select("*", { count: "exact", head: true })
+           .eq("status", "aguardando")
+           .lt("entrou_em", filaPaciente.entrou_em)
+
+          setPosicao((count || 0) + 1)
+          setTempo(((count || 0) + 1) * 8)
+           }
       }
     }, 5000)
 
