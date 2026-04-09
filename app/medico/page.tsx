@@ -37,6 +37,7 @@ export default function MedicoPage() {
   const [receitaAssinada, setReceitaAssinada] = useState<boolean>(false)
   const [atestadoAssinado, setAtestadoAssinado] = useState<boolean>(false)
   const [loading, setLoading] = useState<boolean>(false)
+  const [enviandoEmail, setEnviandoEmail] = useState<boolean>(false)
 
   useEffect(() => {
     const medicoSalvo = localStorage.getItem("medico")
@@ -54,20 +55,17 @@ export default function MedicoPage() {
     e.preventDefault()
     setLoginLoading(true)
     setLoginErro("")
-
     const { data: medicoData } = await supabase
       .from("medicos")
       .select("*")
       .eq("crm", loginForm.crm)
       .eq("ativo", true)
       .single()
-
     if (!medicoData) {
       setLoginErro("CRM não encontrado ou médico não autorizado.")
       setLoginLoading(false)
       return
     }
-
     localStorage.setItem("medico", JSON.stringify(medicoData))
     setMedico(medicoData)
     setLoginLoading(false)
@@ -135,11 +133,12 @@ export default function MedicoPage() {
     setMostrarNovoModelo(false)
   }
 
-  function gerarPDFReceita() {
+  async function gerarPDFReceita() {
     const doc = new jsPDF()
     const agora = new Date().toLocaleString("pt-BR")
     const nomePaciente = pacienteAtual?.pacientes?.nome || "Não informado"
     const cpfPaciente = pacienteAtual?.pacientes?.cpf || "Não informado"
+    const emailPaciente = pacienteAtual?.pacientes?.email || ""
     doc.setFontSize(18); doc.setTextColor(8, 80, 65)
     doc.text("Kare Saúde", 105, 20, { align: "center" })
     doc.setFontSize(12); doc.setTextColor(0, 0, 0)
@@ -172,15 +171,34 @@ export default function MedicoPage() {
     doc.setFontSize(8); doc.setTextColor(150, 150, 150)
     doc.text("Este documento foi emitido pela plataforma Kare Saúde | karesaude.com.br", 105, 280, { align: "center" })
     doc.text("A teleconsulta não substitui a consulta presencial. Em caso de emergência, procure o pronto-socorro.", 105, 285, { align: "center" })
-    doc.save(`receita_${nomePaciente.replace(/ /g, "_")}.pdf`)
+
+    if (emailPaciente) {
+      setEnviandoEmail(true)
+      const pdfBase64 = doc.output("datauristring").split(",")[1]
+      await fetch("/api/enviar-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          emailPaciente,
+          nomePaciente,
+          tipo: "receita",
+          pdfBase64,
+          nomeMedico: medico?.nome || "Não informado",
+          crmMedico: medico?.crm || "Não informado",
+        }),
+      })
+      setEnviandoEmail(false)
+    }
+
     setReceitaAssinada(true)
   }
 
-  function gerarPDFAtestado() {
+  async function gerarPDFAtestado() {
     const doc = new jsPDF()
     const agora = new Date().toLocaleString("pt-BR")
     const nomePaciente = pacienteAtual?.pacientes?.nome || "Não informado"
     const cpfPaciente = pacienteAtual?.pacientes?.cpf || "Não informado"
+    const emailPaciente = pacienteAtual?.pacientes?.email || ""
     doc.setFontSize(18); doc.setTextColor(8, 80, 65)
     doc.text("Kare Saúde", 105, 20, { align: "center" })
     doc.setFontSize(12); doc.setTextColor(0, 0, 0)
@@ -213,7 +231,25 @@ export default function MedicoPage() {
     doc.setFontSize(8); doc.setTextColor(150, 150, 150)
     doc.text("Este documento foi emitido pela plataforma Kare Saúde | karesaude.com.br", 105, 280, { align: "center" })
     doc.text("A teleconsulta não substitui a consulta presencial. Em caso de emergência, procure o pronto-socorro.", 105, 285, { align: "center" })
-    doc.save(`atestado_${nomePaciente.replace(/ /g, "_")}.pdf`)
+
+    if (emailPaciente) {
+      setEnviandoEmail(true)
+      const pdfBase64 = doc.output("datauristring").split(",")[1]
+      await fetch("/api/enviar-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          emailPaciente,
+          nomePaciente,
+          tipo: "atestado",
+          pdfBase64,
+          nomeMedico: medico?.nome || "Não informado",
+          crmMedico: medico?.crm || "Não informado",
+        }),
+      })
+      setEnviandoEmail(false)
+    }
+
     setAtestadoAssinado(true)
   }
 
@@ -275,10 +311,7 @@ export default function MedicoPage() {
             <p style={{fontSize: "20px", fontWeight: 500, color: "#E1F5EE"}}>{concluidas}</p>
             <p style={{fontSize: "10px", color: "#9FE1CB"}}>concluídas</p>
           </div>
-          <button
-            onClick={() => { localStorage.removeItem("medico"); setMedico(null) }}
-            style={{background: "transparent", color: "#9FE1CB", border: "0.5px solid #9FE1CB", padding: "8px 14px", borderRadius: "8px", fontSize: "12px", cursor: "pointer"}}
-          >
+          <button onClick={() => { localStorage.removeItem("medico"); setMedico(null) }} style={{background: "transparent", color: "#9FE1CB", border: "0.5px solid #9FE1CB", padding: "8px 14px", borderRadius: "8px", fontSize: "12px", cursor: "pointer"}}>
             Sair
           </button>
         </div>
@@ -365,10 +398,12 @@ export default function MedicoPage() {
                 <input placeholder="Instruções (ex: 1 comprimido de 8 em 8h)" value={receita.instrucoes} onChange={e => setReceita({...receita, instrucoes: e.target.value})} style={{...inputStyle, marginBottom: "12px"}} />
                 {receitaAssinada ? (
                   <div style={{background: "#E1F5EE", border: "0.5px solid #9FE1CB", borderRadius: "10px", padding: "12px", textAlign: "center"}}>
-                    <p style={{fontSize: "13px", fontWeight: 500, color: "#085041"}}>Receita gerada e baixada com sucesso</p>
+                    <p style={{fontSize: "13px", fontWeight: 500, color: "#085041"}}>✓ Receita enviada para o e-mail do paciente</p>
                   </div>
                 ) : (
-                  <button onClick={gerarPDFReceita} style={{...btnVerde, width: "100%"}}>Gerar e baixar receita (PDF)</button>
+                  <button onClick={gerarPDFReceita} disabled={enviandoEmail} style={{...btnVerde, width: "100%", opacity: enviandoEmail ? 0.7 : 1}}>
+                    {enviandoEmail ? "Enviando..." : "Gerar e enviar receita por e-mail"}
+                  </button>
                 )}
               </div>
             )}
@@ -382,10 +417,12 @@ export default function MedicoPage() {
                 <input placeholder="Observações (opcional)" value={atestado.observacoes} onChange={e => setAtestado({...atestado, observacoes: e.target.value})} style={{...inputStyle, marginBottom: "12px"}} />
                 {atestadoAssinado ? (
                   <div style={{background: "#E1F5EE", border: "0.5px solid #9FE1CB", borderRadius: "10px", padding: "12px", textAlign: "center"}}>
-                    <p style={{fontSize: "13px", fontWeight: 500, color: "#085041"}}>Atestado gerado e baixado com sucesso</p>
+                    <p style={{fontSize: "13px", fontWeight: 500, color: "#085041"}}>✓ Atestado enviado para o e-mail do paciente</p>
                   </div>
                 ) : (
-                  <button onClick={gerarPDFAtestado} style={{...btnVerde, width: "100%"}}>Gerar e baixar atestado (PDF)</button>
+                  <button onClick={gerarPDFAtestado} disabled={enviandoEmail} style={{...btnVerde, width: "100%", opacity: enviandoEmail ? 0.7 : 1}}>
+                    {enviandoEmail ? "Enviando..." : "Gerar e enviar atestado por e-mail"}
+                  </button>
                 )}
               </div>
             )}
