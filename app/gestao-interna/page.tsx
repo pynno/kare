@@ -8,7 +8,7 @@ export default function AdminPage() {
   const [erro, setErro] = useState("")
   const [loading, setLoading] = useState(false)
   const [medicos, setMedicos] = useState<any[]>([])
-  const [novoMedico, setNovoMedico] = useState({ nome: "", crm: "", email: "", especialidade: "" })
+  const [novoMedico, setNovoMedico] = useState({ nome: "", crm: "", email: "", especialidade: "", senha: "" })
   const [mostrarFormMedico, setMostrarFormMedico] = useState(false)
   const [fila, setFila] = useState<any[]>([])
 
@@ -28,7 +28,6 @@ export default function AdminPage() {
       return
     }
 
-    // Verifica se é admin
     const { data: adminData } = await supabase
       .from("admins")
       .select("id")
@@ -51,7 +50,7 @@ export default function AdminPage() {
     const { data: medicosData } = await supabase
       .from("medicos")
       .select("*")
-      .order("criado_em", { ascending: false })
+      .order("nome", { ascending: true })
 
     const { data: filaData } = await supabase
       .from("fila")
@@ -75,15 +74,19 @@ export default function AdminPage() {
 
   async function cadastrarMedico(e: React.FormEvent) {
     e.preventDefault()
+    const bcrypt = await import("bcryptjs")
+    const senhaHash = await bcrypt.hash(novoMedico.senha, 10)
+
     const { error } = await supabase.from("medicos").insert({
       nome: novoMedico.nome,
       crm: novoMedico.crm,
       email: novoMedico.email,
       especialidade: novoMedico.especialidade,
+      senha: senhaHash,
       ativo: true
     })
     if (!error) {
-      setNovoMedico({ nome: "", crm: "", email: "", especialidade: "" })
+      setNovoMedico({ nome: "", crm: "", email: "", especialidade: "", senha: "" })
       setMostrarFormMedico(false)
       carregarDados()
     }
@@ -109,53 +112,30 @@ export default function AdminPage() {
     return (
       <main className="min-h-screen flex items-center justify-center" style={{background: "#F0FAF6"}}>
         <div style={{background: "#fff", borderRadius: "20px", border: "0.5px solid #9FE1CB", padding: "32px 28px", width: "100%", maxWidth: "400px", margin: "0 16px"}}>
-
           <div style={{textAlign: "center", marginBottom: "28px"}}>
             <h1 style={{fontSize: "24px", fontWeight: 500, color: "#085041"}}>
               Kare <span style={{color: "#1D9E75", fontWeight: 400, fontSize: "18px"}}>saúde</span>
             </h1>
             <p style={{fontSize: "13px", color: "#0F6E56", marginTop: "6px"}}>Acesso administrativo</p>
           </div>
-
           <form onSubmit={handleLogin} style={{display: "flex", flexDirection: "column", gap: "16px"}}>
             <div>
               <label style={{fontSize: "12px", fontWeight: 500, color: "#0F6E56", display: "block", marginBottom: "6px"}}>E-mail</label>
-              <input
-                required
-                type="email"
-                placeholder="seu@email.com"
-                value={form.email}
-                onChange={e => setForm({...form, email: e.target.value})}
-                style={inputStyle}
-              />
+              <input required type="email" placeholder="seu@email.com" value={form.email} onChange={e => setForm({...form, email: e.target.value})} style={inputStyle} />
             </div>
             <div>
               <label style={{fontSize: "12px", fontWeight: 500, color: "#0F6E56", display: "block", marginBottom: "6px"}}>Senha</label>
-              <input
-                required
-                type="password"
-                placeholder="••••••••"
-                value={form.senha}
-                onChange={e => setForm({...form, senha: e.target.value})}
-                style={inputStyle}
-              />
+              <input required type="password" placeholder="••••••••" value={form.senha} onChange={e => setForm({...form, senha: e.target.value})} style={inputStyle} />
             </div>
-
             {erro && (
               <div style={{background: "#FCEBEB", border: "0.5px solid #F09595", borderRadius: "10px", padding: "10px 14px"}}>
                 <p style={{fontSize: "13px", color: "#A32D2D"}}>{erro}</p>
               </div>
             )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              style={{background: loading ? "#B4B2A9" : "#085041", color: "#fff", padding: "14px", borderRadius: "12px", fontWeight: 500, fontSize: "15px", border: "none", cursor: loading ? "not-allowed" : "pointer"}}
-            >
+            <button type="submit" disabled={loading} style={{background: loading ? "#B4B2A9" : "#085041", color: "#fff", padding: "14px", borderRadius: "12px", fontWeight: 500, fontSize: "15px", border: "none", cursor: loading ? "not-allowed" : "pointer"}}>
               {loading ? "Entrando..." : "Entrar"}
             </button>
           </form>
-
         </div>
       </main>
     )
@@ -163,23 +143,18 @@ export default function AdminPage() {
 
   return (
     <main className="min-h-screen" style={{background: "#F0FAF6"}}>
-
       <div style={{background: "#085041", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between"}}>
         <div>
           <h1 style={{fontSize: "20px", fontWeight: 500, color: "#E1F5EE"}}>Kare saúde</h1>
           <p style={{fontSize: "12px", color: "#9FE1CB", marginTop: "2px"}}>Painel administrativo</p>
         </div>
-        <button
-          onClick={handleLogout}
-          style={{background: "transparent", color: "#9FE1CB", border: "0.5px solid #9FE1CB", padding: "8px 16px", borderRadius: "8px", fontSize: "13px", cursor: "pointer"}}
-        >
+        <button onClick={handleLogout} style={{background: "transparent", color: "#9FE1CB", border: "0.5px solid #9FE1CB", padding: "8px 16px", borderRadius: "8px", fontSize: "13px", cursor: "pointer"}}>
           Sair
         </button>
       </div>
 
       <div style={{maxWidth: "800px", margin: "0 auto", padding: "24px 16px"}}>
 
-        {/* Métricas */}
         <div style={{display: "flex", gap: "12px", marginBottom: "24px"}}>
           <div style={{flex: 1, background: "#fff", borderRadius: "12px", border: "0.5px solid #9FE1CB", padding: "16px", textAlign: "center"}}>
             <p style={{fontSize: "28px", fontWeight: 500, color: "#085041"}}>{fila.length}</p>
@@ -195,14 +170,10 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Médicos */}
         <div style={{background: "#fff", borderRadius: "16px", border: "0.5px solid #9FE1CB", padding: "20px", marginBottom: "20px"}}>
           <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px"}}>
             <p style={{fontSize: "12px", fontWeight: 500, color: "#0F6E56", textTransform: "uppercase", letterSpacing: "0.8px"}}>Médicos cadastrados</p>
-            <button
-              onClick={() => setMostrarFormMedico(!mostrarFormMedico)}
-              style={{background: "#0F6E56", color: "#fff", border: "none", borderRadius: "8px", padding: "8px 14px", fontSize: "13px", fontWeight: 500, cursor: "pointer"}}
-            >
+            <button onClick={() => setMostrarFormMedico(!mostrarFormMedico)} style={{background: "#0F6E56", color: "#fff", border: "none", borderRadius: "8px", padding: "8px 14px", fontSize: "13px", fontWeight: 500, cursor: "pointer"}}>
               + Cadastrar médico
             </button>
           </div>
@@ -214,6 +185,7 @@ export default function AdminPage() {
               <input required placeholder="CRM (somente números)" value={novoMedico.crm} onChange={e => setNovoMedico({...novoMedico, crm: e.target.value})} style={inputStyle} />
               <input required type="email" placeholder="E-mail" value={novoMedico.email} onChange={e => setNovoMedico({...novoMedico, email: e.target.value})} style={inputStyle} />
               <input placeholder="Especialidade" value={novoMedico.especialidade} onChange={e => setNovoMedico({...novoMedico, especialidade: e.target.value})} style={inputStyle} />
+              <input required type="password" placeholder="Senha de acesso" value={novoMedico.senha} onChange={e => setNovoMedico({...novoMedico, senha: e.target.value})} style={inputStyle} />
               <div style={{display: "flex", gap: "8px"}}>
                 <button type="submit" style={{flex: 1, background: "#0F6E56", color: "#fff", border: "none", borderRadius: "10px", padding: "10px", fontSize: "13px", fontWeight: 500, cursor: "pointer"}}>Cadastrar</button>
                 <button type="button" onClick={() => setMostrarFormMedico(false)} style={{flex: 1, background: "#F8FDFB", color: "#0F6E56", border: "0.5px solid #9FE1CB", borderRadius: "10px", padding: "10px", fontSize: "13px", cursor: "pointer"}}>Cancelar</button>
@@ -248,7 +220,6 @@ export default function AdminPage() {
           )}
         </div>
 
-        {/* Fila */}
         <div style={{background: "#fff", borderRadius: "16px", border: "0.5px solid #9FE1CB", padding: "20px"}}>
           <p style={{fontSize: "12px", fontWeight: 500, color: "#0F6E56", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "14px"}}>Fila de espera atual</p>
           {fila.length === 0 ? (
