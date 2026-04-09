@@ -14,6 +14,43 @@ export default function PacientePage() {
   const [linkConsulta, setLinkConsulta] = useState("")
   const filaIdRef = useRef<string>("")
 
+  // Ao carregar a página, verifica se há sessão salva no localStorage
+  useEffect(() => {
+    const sessao = localStorage.getItem("kare_sessao")
+    if (!sessao) return
+
+    const dados = JSON.parse(sessao)
+    filaIdRef.current = dados.filaId
+    setForm({ nome: dados.nome, cpf: dados.cpf, email: dados.email, queixa: dados.queixa })
+
+    // Verifica o status atual na fila
+    supabase
+      .from("fila")
+      .select("status, posicao, link_meet")
+      .eq("id", dados.filaId)
+      .single()
+      .then(({ data }) => {
+        if (!data) {
+          localStorage.removeItem("kare_sessao")
+          return
+        }
+        if (data.status === "concluido") {
+          setEtapa("concluido")
+          localStorage.removeItem("kare_sessao")
+        } else if (data.status === "nao_compareceu") {
+          setEtapa("nao_compareceu")
+          localStorage.removeItem("kare_sessao")
+        } else if (data.status === "em_atendimento" && data.link_meet) {
+          setLinkConsulta(data.link_meet)
+          setEtapa("chamado")
+        } else if (data.status === "aguardando") {
+          setPosicao(data.posicao)
+          setTempo(data.posicao * 8)
+          setEtapa("fila")
+        }
+      })
+  }, [])
+
   useEffect(() => {
     if (etapa !== "fila" && etapa !== "chamado") return
 
@@ -36,31 +73,31 @@ export default function PacientePage() {
 
       if (data.status === "concluido") {
         setEtapa("concluido")
+        localStorage.removeItem("kare_sessao")
         clearInterval(interval)
         return
       }
 
       if (data.status === "nao_compareceu") {
         setEtapa("nao_compareceu")
+        localStorage.removeItem("kare_sessao")
         clearInterval(interval)
         return
       }
 
-      if (data.status === "problemas_tecnicos" || data.status === "aguardando") {
-        if (etapa === "chamado" && data.status === "aguardando") {
+      if (data.status === "aguardando") {
+        if (etapa === "chamado") {
           setEtapa("problemas_tecnicos")
           clearInterval(interval)
           return
         }
-        if (data.status === "aguardando") {
-          const { count } = await supabase
-            .from("fila")
-            .select("*", { count: "exact", head: true })
-            .eq("status", "aguardando")
-            .lt("posicao", data.posicao)
-          setPosicao((count || 0) + 1)
-          setTempo(((count || 0) + 1) * 8)
-        }
+        const { count } = await supabase
+          .from("fila")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "aguardando")
+          .lt("posicao", data.posicao)
+        setPosicao((count || 0) + 1)
+        setTempo(((count || 0) + 1) * 8)
       }
     }, 5000)
 
@@ -114,6 +151,16 @@ export default function PacientePage() {
       if (erroFila) throw erroFila
 
       filaIdRef.current = filaData.id
+
+      // Salva sessão no localStorage para sobreviver ao redirecionamento
+      localStorage.setItem("kare_sessao", JSON.stringify({
+        filaId: filaData.id,
+        nome: form.nome,
+        cpf: form.cpf,
+        email: form.email,
+        queixa: form.queixa,
+      }))
+
       setPosicao(posicaoNaFila)
       setTempo(tempoEstimado)
       setEtapa("fila")
@@ -124,6 +171,13 @@ export default function PacientePage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  function limparSessao() {
+    localStorage.removeItem("kare_sessao")
+    filaIdRef.current = ""
+    setForm({ nome: "", cpf: "", email: "", queixa: "" })
+    setEtapa("cadastro")
   }
 
   const logo = (
@@ -158,14 +212,7 @@ export default function PacientePage() {
             Receitas e atestados emitidos durante a consulta serão enviados para o e-mail <strong>{form.email}</strong> em instantes.
           </p>
         </div>
-        <button
-          onClick={() => {
-            setEtapa("cadastro")
-            setForm({ nome: "", cpf: "", email: "", queixa: "" })
-            filaIdRef.current = ""
-          }}
-          style={{width: "100%", background: "#0F6E56", color: "#fff", padding: "14px", borderRadius: "12px", fontWeight: 500, fontSize: "15px", border: "none", cursor: "pointer"}}
-        >
+        <button onClick={limparSessao} style={{width: "100%", background: "#0F6E56", color: "#fff", padding: "14px", borderRadius: "12px", fontWeight: 500, fontSize: "15px", border: "none", cursor: "pointer"}}>
           Nova consulta
         </button>
         <p style={{fontSize: "11px", color: "#B4B2A9", textAlign: "center", marginTop: "16px"}}>
@@ -189,16 +236,10 @@ export default function PacientePage() {
         </div>
         <div style={{background: "#F8FDFB", border: "0.5px solid #9FE1CB", borderRadius: "12px", padding: "16px", marginBottom: "20px"}}>
           <p style={{fontSize: "13px", color: "#085041", lineHeight: 1.6}}>
-            Se ainda precisar de atendimento, entre na fila novamente. Sua queixa anterior será lembrada.
+            Se ainda precisar de atendimento, entre na fila novamente.
           </p>
         </div>
-        <button
-          onClick={() => {
-            setEtapa("cadastro")
-            filaIdRef.current = ""
-          }}
-          style={{width: "100%", background: "#0F6E56", color: "#fff", padding: "14px", borderRadius: "12px", fontWeight: 500, fontSize: "15px", border: "none", cursor: "pointer"}}
-        >
+        <button onClick={limparSessao} style={{width: "100%", background: "#0F6E56", color: "#fff", padding: "14px", borderRadius: "12px", fontWeight: 500, fontSize: "15px", border: "none", cursor: "pointer"}}>
           Entrar na fila novamente
         </button>
       </>
@@ -222,10 +263,7 @@ export default function PacientePage() {
             Você foi recolocado com prioridade na fila. Clique abaixo para acompanhar seu atendimento.
           </p>
         </div>
-        <button
-          onClick={() => setEtapa("fila")}
-          style={{width: "100%", background: "#0F6E56", color: "#fff", padding: "14px", borderRadius: "12px", fontWeight: 500, fontSize: "15px", border: "none", cursor: "pointer"}}
-        >
+        <button onClick={() => setEtapa("fila")} style={{width: "100%", background: "#0F6E56", color: "#fff", padding: "14px", borderRadius: "12px", fontWeight: 500, fontSize: "15px", border: "none", cursor: "pointer"}}>
           Voltar para a fila
         </button>
       </>
@@ -244,10 +282,7 @@ export default function PacientePage() {
             O médico está pronto para te atender. Clique no botão abaixo para entrar na consulta.
           </p>
         </div>
-        <button
-          onClick={() => window.open(linkConsulta)}
-          style={{width: "100%", background: "#0F6E56", color: "#fff", padding: "16px", borderRadius: "12px", fontWeight: 500, fontSize: "16px", border: "none", cursor: "pointer", marginBottom: "12px"}}
-        >
+        <button onClick={() => window.open(linkConsulta)} style={{width: "100%", background: "#0F6E56", color: "#fff", padding: "16px", borderRadius: "12px", fontWeight: 500, fontSize: "16px", border: "none", cursor: "pointer", marginBottom: "12px"}}>
           Entrar na consulta
         </button>
         <p style={{fontSize: "11px", color: "#B4B2A9", textAlign: "center"}}>
