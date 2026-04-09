@@ -13,7 +13,6 @@ export async function POST() {
           exp,
           eject_at_room_exp: true,
           enable_recording: "none",
-          redirect_on_meeting_exit: "https://kare-one.vercel.app/paciente",
         },
       }),
     })
