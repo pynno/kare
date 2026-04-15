@@ -36,7 +36,7 @@ export default function Home() {
         </div>
         <p style={{fontSize: "11px", color: "#B4B2A9", marginTop: "24px"}}>
           Profissional de saúde?{" "}
-          <a href="/equipe" style={{color: "#5DCAA5", textDecoration: "none"}}>Acesse aqui</a>
+          <a href="/medico" style={{color: "#5DCAA5", textDecoration: "none"}}>Acesse aqui</a>
         </p>
       </div>
     </main>
