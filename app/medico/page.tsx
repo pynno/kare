@@ -4,16 +4,16 @@ import { supabase } from "../lib/supabase"
 import jsPDF from "jspdf"
 
 const modelosPadrao = [
-  { id: 1, nome: "Lombalgia", texto: "S: Paciente refere dor lombar há ___ dias, com intensidade _/10, piora ao movimento e melhora com repouso.\nO: Sem déficit neurológico. Mobilidade preservada.\nA: Lombalgia mecânica aguda.\nP: Repouso relativo, anti-inflamatório por ___ dias, orientações posturais." },
-  { id: 2, nome: "Cefaleia", texto: "S: Paciente refere cefaleia há ___ horas, intensidade _/10, localização ___, sem aura, sem febre.\nO: Sem rigidez de nuca. Pupilas isocóricas.\nA: Cefaleia tensional.\nP: Analgésico simples, hidratação, repouso em ambiente calmo." },
-  { id: 3, nome: "Infecção respiratória", texto: "S: Paciente refere tosse ___, febre ___, coriza ___, há ___ dias.\nO: Orofaringe hiperemiada. Sem dispneia.\nA: Infecção de vias aéreas superiores.\nP: Sintomáticos, hidratação, repouso. Retorno se piora." },
-  { id: 4, nome: "Ansiedade e insônia", texto: "S: Paciente refere ansiedade e dificuldade para dormir há ___ semanas. Nega ideação suicida.\nO: Orientado, consciente, humor ansioso.\nA: Transtorno de ansiedade.\nP: Orientações de higiene do sono, encaminhamento para psicólogo." },
-  { id: 5, nome: "Dor abdominal", texto: "S: Paciente refere dor abdominal em ___, há ___ horas, intensidade _/10.\nO: Abdome doloroso à palpação em ___. Sem sinais de irritação peritoneal.\nA: Síndrome dispéptica.\nP: Dieta leve, antiácido, retorno se piora ou febre." },
-  { id: 6, nome: "Hipertensão", texto: "S: Paciente refere ___. PA medida em ___.\nO: PA: _/_mmHg, FC: _bpm. Sem sinais de lesão de órgão-alvo.\nA: Hipertensão arterial sistêmica.\nP: Ajuste de medicação, orientações dietéticas, retorno em ___ dias." },
-  { id: 7, nome: "Febre sem foco", texto: "S: Paciente refere febre de ___°C há ___ dias, sem foco identificado.\nO: Sem sinais de localização. Hemodinamicamente estável.\nA: Síndrome febril sem foco aparente.\nP: Antitérmico, hidratação, retorno se piora ou persistência além de 3 dias." },
+  { id: "padrao-1", nome: "Lombalgia", texto: "S: Paciente refere dor lombar há ___ dias, com intensidade _/10, piora ao movimento e melhora com repouso.\nO: Sem déficit neurológico. Mobilidade preservada.\nA: Lombalgia mecânica aguda.\nP: Repouso relativo, anti-inflamatório por ___ dias, orientações posturais.", padrao: true },
+  { id: "padrao-2", nome: "Cefaleia", texto: "S: Paciente refere cefaleia há ___ horas, intensidade _/10, localização ___, sem aura, sem febre.\nO: Sem rigidez de nuca. Pupilas isocóricas.\nA: Cefaleia tensional.\nP: Analgésico simples, hidratação, repouso em ambiente calmo.", padrao: true },
+  { id: "padrao-3", nome: "Infecção respiratória", texto: "S: Paciente refere tosse ___, febre ___, coriza ___, há ___ dias.\nO: Orofaringe hiperemiada. Sem dispneia.\nA: Infecção de vias aéreas superiores.\nP: Sintomáticos, hidratação, repouso. Retorno se piora.", padrao: true },
+  { id: "padrao-4", nome: "Ansiedade e insônia", texto: "S: Paciente refere ansiedade e dificuldade para dormir há ___ semanas. Nega ideação suicida.\nO: Orientado, consciente, humor ansioso.\nA: Transtorno de ansiedade.\nP: Orientações de higiene do sono, encaminhamento para psicólogo.", padrao: true },
+  { id: "padrao-5", nome: "Dor abdominal", texto: "S: Paciente refere dor abdominal em ___, há ___ horas, intensidade _/10.\nO: Abdome doloroso à palpação em ___. Sem sinais de irritação peritoneal.\nA: Síndrome dispéptica.\nP: Dieta leve, antiácido, retorno se piora ou febre.", padrao: true },
+  { id: "padrao-6", nome: "Hipertensão", texto: "S: Paciente refere ___. PA medida em ___.\nO: PA: _/_mmHg, FC: _bpm. Sem sinais de lesão de órgão-alvo.\nA: Hipertensão arterial sistêmica.\nP: Ajuste de medicação, orientações dietéticas, retorno em ___ dias.", padrao: true },
+  { id: "padrao-7", nome: "Febre sem foco", texto: "S: Paciente refere febre de ___°C há ___ dias, sem foco identificado.\nO: Sem sinais de localização. Hemodinamicamente estável.\nA: Síndrome febril sem foco aparente.\nP: Antitérmico, hidratação, retorno se piora ou persistência além de 3 dias.", padrao: true },
 ]
 
-type Modelo = { id: number; nome: string; texto: string }
+type Modelo = { id: string; nome: string; texto: string; padrao?: boolean }
 type Medico = { id: string; nome: string; crm: string; especialidade: string; email: string }
 
 export default function MedicoPage() {
@@ -41,7 +41,11 @@ export default function MedicoPage() {
 
   useEffect(() => {
     const medicoSalvo = localStorage.getItem("medico")
-    if (medicoSalvo) setMedico(JSON.parse(medicoSalvo))
+    if (medicoSalvo) {
+      const m = JSON.parse(medicoSalvo)
+      setMedico(m)
+      carregarModelos(m.id)
+    }
   }, [])
 
   useEffect(() => {
@@ -50,6 +54,19 @@ export default function MedicoPage() {
     const interval = setInterval(carregarFila, 5000)
     return () => clearInterval(interval)
   }, [medico])
+
+  async function carregarModelos(medicoId: string) {
+    const { data } = await supabase
+      .from("modelos")
+      .select("*")
+      .eq("medico_id", medicoId)
+      .order("criado_em", { ascending: true })
+
+    if (data && data.length > 0) {
+      const modelosPersonalizados = data.map(m => ({ id: m.id, nome: m.nome, texto: m.texto, padrao: false }))
+      setModelos([...modelosPadrao, ...modelosPersonalizados])
+    }
+  }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
@@ -66,8 +83,16 @@ export default function MedicoPage() {
       setLoginLoading(false)
       return
     }
+    const bcrypt = await import("bcryptjs")
+    const senhaCorreta = await bcrypt.compare(loginForm.senha, medicoData.senha || "")
+    if (!senhaCorreta) {
+      setLoginErro("Senha incorreta.")
+      setLoginLoading(false)
+      return
+    }
     localStorage.setItem("medico", JSON.stringify(medicoData))
     setMedico(medicoData)
+    carregarModelos(medicoData.id)
     setLoginLoading(false)
   }
 
@@ -126,11 +151,25 @@ export default function MedicoPage() {
     setMostrarModelos(false)
   }
 
-  function salvarNovoModelo() {
-    if (!novoModelo.nome || !novoModelo.texto) return
-    setModelos((m: Modelo[]) => [...m, { id: Date.now(), ...novoModelo }])
-    setNovoModelo({ nome: "", texto: "" })
-    setMostrarNovoModelo(false)
+  async function salvarNovoModelo() {
+    if (!novoModelo.nome || !novoModelo.texto || !medico) return
+
+    const { data, error } = await supabase.from("modelos").insert({
+      medico_id: medico.id,
+      nome: novoModelo.nome,
+      texto: novoModelo.texto,
+    }).select("id").single()
+
+    if (!error && data) {
+      setModelos(m => [...m, { id: data.id, nome: novoModelo.nome, texto: novoModelo.texto, padrao: false }])
+      setNovoModelo({ nome: "", texto: "" })
+      setMostrarNovoModelo(false)
+    }
+  }
+
+  async function deletarModelo(id: string) {
+    await supabase.from("modelos").delete().eq("id", id)
+    setModelos(m => m.filter(modelo => modelo.id !== id))
   }
 
   async function gerarPDFReceita() {
@@ -171,25 +210,16 @@ export default function MedicoPage() {
     doc.setFontSize(8); doc.setTextColor(150, 150, 150)
     doc.text("Este documento foi emitido pela plataforma Kare Saúde | karesaude.com.br", 105, 280, { align: "center" })
     doc.text("A teleconsulta não substitui a consulta presencial. Em caso de emergência, procure o pronto-socorro.", 105, 285, { align: "center" })
-
     if (emailPaciente) {
       setEnviandoEmail(true)
       const pdfBase64 = doc.output("datauristring").split(",")[1]
       await fetch("/api/enviar-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          emailPaciente,
-          nomePaciente,
-          tipo: "receita",
-          pdfBase64,
-          nomeMedico: medico?.nome || "Não informado",
-          crmMedico: medico?.crm || "Não informado",
-        }),
+        body: JSON.stringify({ emailPaciente, nomePaciente, tipo: "receita", pdfBase64, nomeMedico: medico?.nome || "Não informado", crmMedico: medico?.crm || "Não informado" }),
       })
       setEnviandoEmail(false)
     }
-
     setReceitaAssinada(true)
   }
 
@@ -231,25 +261,16 @@ export default function MedicoPage() {
     doc.setFontSize(8); doc.setTextColor(150, 150, 150)
     doc.text("Este documento foi emitido pela plataforma Kare Saúde | karesaude.com.br", 105, 280, { align: "center" })
     doc.text("A teleconsulta não substitui a consulta presencial. Em caso de emergência, procure o pronto-socorro.", 105, 285, { align: "center" })
-
     if (emailPaciente) {
       setEnviandoEmail(true)
       const pdfBase64 = doc.output("datauristring").split(",")[1]
       await fetch("/api/enviar-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          emailPaciente,
-          nomePaciente,
-          tipo: "atestado",
-          pdfBase64,
-          nomeMedico: medico?.nome || "Não informado",
-          crmMedico: medico?.crm || "Não informado",
-        }),
+        body: JSON.stringify({ emailPaciente, nomePaciente, tipo: "atestado", pdfBase64, nomeMedico: medico?.nome || "Não informado", crmMedico: medico?.crm || "Não informado" }),
       })
       setEnviandoEmail(false)
     }
-
     setAtestadoAssinado(true)
   }
 
@@ -257,7 +278,6 @@ export default function MedicoPage() {
   const btnCinza = { background: "#F8FDFB", color: "#0F6E56", padding: "10px 16px", borderRadius: "10px", fontSize: "13px", fontWeight: 500, border: "0.5px solid #9FE1CB", cursor: "pointer" }
   const inputStyle = { width: "100%", background: "#F8FDFB", border: "0.5px solid #9FE1CB", borderRadius: "10px", padding: "10px 14px", fontSize: "14px", color: "#085041", outline: "none", resize: "none" as const }
 
-  // TELA DE LOGIN
   if (!medico) {
     return (
       <main className="min-h-screen flex items-center justify-center" style={{background: "#F0FAF6"}}>
@@ -294,7 +314,6 @@ export default function MedicoPage() {
     )
   }
 
-  // PAINEL DO MÉDICO
   return (
     <main className="min-h-screen" style={{background: "#F0FAF6"}}>
       <div style={{background: "#085041", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between"}}>
@@ -358,13 +377,33 @@ export default function MedicoPage() {
               {mostrarModelos && (
                 <div style={{background: "#F8FDFB", border: "0.5px solid #9FE1CB", borderRadius: "10px", padding: "12px", marginBottom: "10px"}}>
                   <p style={{fontSize: "11px", fontWeight: 500, color: "#0F6E56", marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.8px"}}>Selecione um modelo</p>
-                  <div style={{display: "flex", flexDirection: "column", gap: "6px"}}>
-                    {modelos.map((m: Modelo) => (
+                  {modelos.filter(m => m.padrao).length > 0 && (
+                    <p style={{fontSize: "10px", color: "#B4B2A9", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.6px"}}>Padrão</p>
+                  )}
+                  <div style={{display: "flex", flexDirection: "column", gap: "6px", marginBottom: "10px"}}>
+                    {modelos.filter(m => m.padrao).map((m: Modelo) => (
                       <button key={m.id} onClick={() => aplicarModelo(m.texto)} style={{background: "#fff", border: "0.5px solid #9FE1CB", borderRadius: "8px", padding: "10px 14px", fontSize: "13px", color: "#085041", cursor: "pointer", textAlign: "left", fontWeight: 500}}>
                         {m.nome}
                       </button>
                     ))}
                   </div>
+                  {modelos.filter(m => !m.padrao).length > 0 && (
+                    <>
+                      <p style={{fontSize: "10px", color: "#B4B2A9", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.6px"}}>Meus modelos</p>
+                      <div style={{display: "flex", flexDirection: "column", gap: "6px"}}>
+                        {modelos.filter(m => !m.padrao).map((m: Modelo) => (
+                          <div key={m.id} style={{display: "flex", gap: "6px", alignItems: "center"}}>
+                            <button onClick={() => aplicarModelo(m.texto)} style={{flex: 1, background: "#E1F5EE", border: "0.5px solid #9FE1CB", borderRadius: "8px", padding: "10px 14px", fontSize: "13px", color: "#085041", cursor: "pointer", textAlign: "left", fontWeight: 500}}>
+                              {m.nome}
+                            </button>
+                            <button onClick={() => deletarModelo(m.id)} style={{background: "#FCEBEB", color: "#A32D2D", border: "none", borderRadius: "8px", padding: "8px 10px", fontSize: "12px", cursor: "pointer"}}>
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
