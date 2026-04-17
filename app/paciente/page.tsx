@@ -5,7 +5,7 @@ import { supabase } from "../lib/supabase"
 type Etapa = "inicio" | "login" | "cadastro" | "queixa" | "fila" | "chamado" | "concluido" | "nao_compareceu" | "problemas_tecnicos"
 
 export default function PacientePage() {
-  const [etapa, setEtapa] = useState<Etapa>("login")
+  const [etapa, setEtapa] = useState<Etapa>("inicio")
   const [form, setForm] = useState({ nome: "", cpf: "", email: "", celular: "", dataNascimento: "", genero: "", senha: "", confirmarSenha: "" })
   const [queixa, setQueixa] = useState("")
   const [paciente, setPaciente] = useState<any>(null)
