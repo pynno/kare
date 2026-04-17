@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react"
 import { supabase } from "../lib/supabase"
 
-type Etapa = "login" | "cadastro" | "queixa" | "fila" | "chamado" | "concluido" | "nao_compareceu" | "problemas_tecnicos"
+type Etapa = "inicio" | "login" | "cadastro" | "queixa" | "fila" | "chamado" | "concluido" | "nao_compareceu" | "problemas_tecnicos"
 
 export default function PacientePage() {
   const [etapa, setEtapa] = useState<Etapa>("login")
@@ -330,6 +330,36 @@ export default function PacientePage() {
         Ao continuar você aceita nossos <a href="#" style={{color: "#5DCAA5", textDecoration: "none"}}>termos de uso</a> e <a href="#" style={{color: "#5DCAA5", textDecoration: "none"}}>política de privacidade</a>
       </p>
     </>, true
+  )
+
+  // TELA: INICIO
+  if (etapa === "inicio") return card(
+    <>
+      {logo}
+      <div style={{background: "#E1F5EE", borderRadius: "16px", padding: "20px", marginBottom: "24px", textAlign: "center"}}>
+        <p style={{fontSize: "14px", color: "#0F6E56", lineHeight: 1.7}}>
+          Atendimento médico online agora, sem sair de casa. Médicos reais, prontos para te atender em minutos.
+        </p>
+      </div>
+      <button
+        onClick={() => { setEtapa("cadastro"); setErro("") }}
+        style={{width: "100%", background: "#0F6E56", color: "#fff", padding: "18px", borderRadius: "14px", fontWeight: 500, fontSize: "17px", border: "none", cursor: "pointer", marginBottom: "12px"}}
+      >
+        Primeira consulta
+      </button>
+      <button
+        onClick={() => { setEtapa("login"); setErro("") }}
+        style={{width: "100%", background: "#F8FDFB", color: "#0F6E56", border: "0.5px solid #9FE1CB", padding: "18px", borderRadius: "14px", fontWeight: 500, fontSize: "17px", cursor: "pointer"}}
+      >
+        Já consultei aqui antes
+      </button>
+      <p style={{fontSize: "11px", color: "#B4B2A9", textAlign: "center", marginTop: "20px"}}>
+        Ao continuar você aceita nossos{" "}
+        <a href="#" style={{color: "#5DCAA5", textDecoration: "none"}}>termos de uso</a>
+        {" "}e{" "}
+        <a href="#" style={{color: "#5DCAA5", textDecoration: "none"}}>política de privacidade</a>
+      </p>
+    </>
   )
 
   // TELA: LOGIN
